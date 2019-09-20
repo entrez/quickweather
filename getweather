@@ -1,0 +1,177 @@
+#!/usr/bin/env sh
+
+# uncomment below line to fill in api key here if desired - alternatively, set
+# the environment variable $OPENWEATHERKEY in your shell rc file.
+#[ -z "${OPENWEATHERKEY}" ] && OPENWEATHERKEY='FILL IN API KEY HERE'
+
+printerrors=true
+while [ "$#" -gt 0 ]; do
+    case "${1}" in
+        -h|--help)
+            # display help message
+            echo 'getweather [-s|--silent]' 1>&2
+            echo 'prints brief summary of current weather using the openweathermap' 1>&2
+            echo 'api. to use it, you must have a valid account; register at' 1>&2
+            echo '   https://home.openweathermap.org/users/sign_up' 1>&2
+            echo 'and set the variable $OPENWEATHERKEY to your api key.'
+            echo 'options:' 1>&2
+            echo '   -h --help         show this message'
+            echo '   -s --silent       suppress error messages'
+            exit
+            ;;
+        -s|--silent)
+            # suppress error messages
+            printerrors=false
+            ;;
+        *)
+            # warn of bad arg (but continue)
+            echo "getweather: unexpected argument ${1}" 1>&2
+            ;;
+    esac
+    shift
+done
+            
+# don't bother pinging all those sites and wasting
+# bandwidth if we don't have a valid api key in the
+# first place
+[ -z "${OPENWEATHERKEY}" ] && echo '☂ no api key: set $OPENWEATHERKEY' 1>&2 && exit 1
+
+# retrieve external ip
+ip="$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null)"
+
+[ -z "${ip}" ] && [ "${printerrors}" == "true" ] \
+    && echo '☂ no internet connection' 1>&2 && exit 1
+# if the current external ip matches the previous
+# recorded ip, use the existing local lat/long info;
+# otherwise, contact the ip geolocation server to 
+# update those values
+[ -e /tmp/ipgeo ] && [ "${ip}" == "$(cat /tmp/ipgeo | head -1)" ] && latlong="$(cat /tmp/ipgeo | tail -1)" \
+    || latlong="$(curl -s https://tools.keycdn.com/geo.json | sed 'h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;s/.*"longitude":\([-.0-9]*\).*/lon=\1/;H;g;s/\n/\&/')"
+# overwrite our ip & geo values to the local file
+echo -e "${ip}\n${latlong}" >/tmp/ipgeo
+
+# use our lat/long values to assemble a request url
+# which we can use to contact openweathermap, which
+# sends us a json response that we strip of any & all
+# extraneous information with sed
+requesturl="api.openweathermap.org/data/2.5/weather?${latlong}&appid=${OPENWEATHERKEY}&units=imperial"
+response="$(curl -s "${requesturl}" | sed 'h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;s/.*"temp":\([-+0-9]*\).*/\1/;H;g;s/\n/ /')"
+
+# verify there isn't a problem with the server and/or
+# response before updating our info
+if [ -z "${response}" ]; then
+    [ "${printerrors}" == "true" ] && echo '☂ no connection to openweathermap' 1>&2
+    exit 1
+elif grep -e Exceed <<<"${response}" &>/dev/null; then
+    [ "${printerrors}" == "true" ] && echo '☂ api request limit reached' 1>&2
+    exit 1
+elif grep -e Invalid <<<"${response}" &>/dev/null; then
+    [ "${printerrors}" == "true" ] && echo '☂ invalid api key' 1>&2
+    exit 1
+elif grep -e Error <<<"${response}" &>/dev/null; then
+    [ "${printerrors}" == "true" ] && echo '☂ invalid response from server' 1>&2
+    exit 1
+fi
+ 
+# replace the weather code with an
+# appropriate icon (from scientifica)
+case "${response% *}" in
+    201|202|211|213|221|231|232)
+        # thunderstorm
+        icon=''
+        ;;
+    200|210|230|300|301|310|311|313|321|500|520)
+        # light rain, drizzle, shower rain/drizzle, tstorm w/light rain, etc
+        icon=''
+        ;;
+    302|312|314|501|502|503|504|511|521|522|531)
+        # heavy drizzle, heavy shower, heavy rain
+        icon=''
+        ;;
+    600|601|602|611|612|613|614|616|620|621|622)
+        # snow, sleet, shower snow/sleet, rain & snow
+        icon=''
+        ;;
+    701|711|721|741|762)
+        # mist, smoke, haze, fog
+        icon=''
+        ;;
+    731|751|761|771|781)
+        # sand, dust, squalls, tornado
+        icon=''
+        ;;
+    800)
+        # clear sky
+        currhour=$(date +%H)
+        [ ${currhour} -lt 21 ] && [ ${currhour} -gt 6 ] && icon='' || icon=''
+        ;;
+    801)
+        # few clouds
+        icon=''
+        ;;
+    802|803)
+        # scattered/broken clouds
+        icon=''
+        ;;
+    804)
+        # overcast clouds
+        icon=''
+        ;;
+    *)
+        # fallback icon
+        icon='✮'
+        ;;
+esac
+
+echo "${icon} ${response#* }°"
+
+#           +--------------------------------+
+#           | openweathermap condition codes |
+#           +--------------------------------+
+
+# 2xx thunderstorm                    3xx drizzle
+# ----------------                    -----------
+# 200 thunderstorm w/ light rain     300 light drizzle 
+# 201 thunderstorm w/ rain           301 drizzle 
+# 202 tstorm w/ heavy rain           302 heavy drizzle 
+# 210 light tstorm                   310 light drizzle rain 
+# 211 tstorm                         311 drizzle rain 
+# 213 heavy tstorm                   312 heavy drizzle rain 
+# 221 ragged tstorm                  313 shower rain & drizzle 
+# 230 tstorm w/ light drizzle        314 heavy shower rain & drizzle 
+# 231 tstorm w/ drizzle              321 shower drizzle 
+# 232 tstorm w/ heavy drizzle 
+
+# 5xx rain                            6xx snow
+# --------                            --------
+# 500 light rain                     600 light snow 
+# 501 moderate rain                  601 snow 
+# 502 heavy intensity rain           602 heavy snow 
+# 503 very heavy rain                611 sleet 
+# 504 extreme rain                   612 light shower sleet 
+# 511 freezing rain                  613 shower sleet 
+# 520 light shower rain              614 light rain & snow 
+# 521 shower rain                    616 rain & snow 
+# 522 heavy shower rain              620 light shower snow 
+# 531 ragged shower rain             621 shower snow 
+#                                     622 heavy shower snow 
+
+# 7xx atmosphere                      800 clear
+# --------------                      ---------
+# 701 mist                           800 clear sky 
+# 711 smoke 
+# 721 haze                           80x clouds
+# 731 sand/dust whirls               ----------
+# 741 fog                            801 few clouds (11-25%) 
+# 751 sand                           802 scattered clouds (25-50%) 
+# 761 dust                           803 broken clouds (51-84%) 
+# 762 volcanic ash                   804 overcast clouds (85-100%) 
+# 771 squalls 
+# 781 tornado 
+
+# weather-related icons:
+# ----------------------
+# partly cloudy (); partly cloudy w/ rain (); overcast (); raining ();
+# snow/sleet (); wind (); fog (); sun (☀); sun?? (); sun behind cloud? ();
+# moon? (); cloud (☁); umbrella (☂); star (✮); snowflake (❄); thunderstorm (); 
+# phases of the moon? (●◐○◑) 
