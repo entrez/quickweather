@@ -1,4 +1,4 @@
-# getweather
+# quickweather
 
 this is a small script designed to do one thing quickly: display a concise
 summary of the current weather conditions without requiring the user to
