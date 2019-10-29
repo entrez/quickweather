@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 # uncomment below line to fill in api key here if desired - alternatively, set
 # the environment variable $OPENWEATHERKEY in your shell rc file.
