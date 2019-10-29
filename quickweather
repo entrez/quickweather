@@ -9,14 +9,17 @@ while [ "$#" -gt 0 ]; do
     case "${1}" in
         -h|--help)
             # display help message
-            echo 'getweather [-s|--silent]' 1>&2
-            echo 'prints brief summary of current weather using the openweathermap' 1>&2
-            echo 'api. to use it, you must have a valid account; register at' 1>&2
-            echo '   https://home.openweathermap.org/users/sign_up' 1>&2
-            echo 'and set the variable $OPENWEATHERKEY to your api key.'
-            echo 'options:' 1>&2
-            echo '   -h --help         show this message'
-            echo '   -s --silent       suppress error messages'
+            echo 'usage: getweather [-s|--silent]' >&2
+            echo >&2
+            echo 'prints brief summary of current weather in your current location, thanks'
+            echo 'to the openweathermap api. you must have a valid api key; register at' >&2
+            echo '    <https://home.openweathermap.org/users/sign_up>' >&2
+            echo 'once signed up, set the variable $OPENWEATHERKEY to your key.'
+            echo >&2
+            echo 'options:' >&2
+            echo '   -h --help         show this message' >&2
+            echo '   -s --silent       suppress error messages' >&2
+            echo >&2
             exit
             ;;
         -s|--silent)
@@ -25,7 +28,7 @@ while [ "$#" -gt 0 ]; do
             ;;
         *)
             # warn of bad arg (but continue)
-            echo "getweather: unexpected argument ${1}" 1>&2
+            echo "getweather: unexpected argument ${1}" >&2
             ;;
     esac
     shift
@@ -34,13 +37,13 @@ done
 # don't bother pinging all those sites and wasting
 # bandwidth if we don't have a valid api key in the
 # first place
-[ -z "${OPENWEATHERKEY}" ] && echo '☂ no api key: set $OPENWEATHERKEY' 1>&2 && exit 1
+[ -z "${OPENWEATHERKEY}" ] && echo '☂ no api key: set $OPENWEATHERKEY' >&2 && exit 1
 
 # retrieve external ip
 ip="$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null)"
 
 [ -z "${ip}" ] && [ "${printerrors}" == "true" ] \
-    && echo '☂ no internet connection' 1>&2 && exit 1
+    && echo '☂ no internet connection' >&2 && exit 1
 # if the current external ip matches the previous
 # recorded ip, use the existing local lat/long info;
 # otherwise, contact the ip geolocation server to 
@@ -60,16 +63,16 @@ response="$(curl -s "${requesturl}" | sed 'h;s/.*"weather":\[{"id":\([0-9]*\).*/
 # verify there isn't a problem with the server and/or
 # response before updating our info
 if [ -z "${response}" ]; then
-    [ "${printerrors}" == "true" ] && echo '☂ no connection to openweathermap' 1>&2
+    [ "${printerrors}" == "true" ] && echo '☂ no connection to openweathermap' >&2
     exit 1
 elif grep -e Exceed <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ api request limit reached' 1>&2
+    [ "${printerrors}" == "true" ] && echo '☂ api request limit reached' >&2
     exit 1
 elif grep -e Invalid <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ invalid api key' 1>&2
+    [ "${printerrors}" == "true" ] && echo '☂ invalid api key' >&2
     exit 1
 elif grep -e Error <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ invalid response from server' 1>&2
+    [ "${printerrors}" == "true" ] && echo '☂ invalid response from server' >&2
     exit 1
 fi
  
