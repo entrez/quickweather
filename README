@@ -1,13 +1,21 @@
-# quickweather
+                           .               , .        
+                  _.. .* _.;_/.    , _  _.-+-|_  _ ._.
+                 (_](_||(_.| \ \/\/ (/,(_] | [ )(/,[  
+                   |                                  
+                                ☁ ☂ ❄ ☀
 
-this is a small script designed to do one thing quickly: display a concise
-summary of the current weather conditions without requiring the user to
-manually input a zip code or lat/long whenever they change locations.
+Get a super-concise summary of current weather conditions in your area
+without manually entering zip code or lat/long whenever you move around.
 
-in order to do this, it uses the [openweathermap](https://openweathermap.org/)
-api, and use requires an api key (which should be stored in the variable
-`$OPENWEATHERKEY`). you can register for an account, and a corresponding
-api key, for free [here](https://home.openweathermap.org/users/sign_up).
+quickweather uses the openweathermap api <https://openweathermap.org/>;
+you can register for an account, and a corresponding api key, for free:
 
-the weather icons used are compatible with [scientifica](https://github.com/NerdyPepper/scientifica),
-but I don't know whether they will work with any other fonts or not.
+        <https://home.openweathermap.org/users/sign_up>
+
+Once you have an api key, store it in the variable `$OPENWEATHERKEY`.
+
+The weather icons used are compatible with the (very nice) terminal font
+`scientifica' <https://github.com/NerdyPepper/scientifica>, and I guess
+probably also with `creep' <https://github.com/romeovs/creep>. I think
+the codepoints used are non-standard so I doubt it will be compatible
+with most fonts.
