@@ -40,7 +40,8 @@ done
 [ -z "${OPENWEATHERKEY}" ] && echo '☂ no api key: set $OPENWEATHERKEY' >&2 && exit 1
 
 # retrieve external ip
-ip="$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null)"
+ip="$(dig +short +retry=1 +time=3 myip.opendns.com @resolver1.opendns.com 2>/dev/null)"
+[ -z "${ip}" ] && ip="$(curl -qf https://diagnostic.opendns.com/myip 2>/dev/null)"
 
 [ -z "${ip}" ] && [ "${printerrors}" == "true" ] \
     && echo '☂ no internet connection' >&2 && exit 1
