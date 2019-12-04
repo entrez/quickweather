@@ -76,8 +76,11 @@ elif grep -e Invalid <<<"${response}" &>/dev/null; then
 elif grep -e Error <<<"${response}" &>/dev/null; then
     [ "${printerrors}" == "true" ] && echo '☂ invalid response from server' >&2
     exit 1
+elif grep -e Nothing\ to\ geocode <<<"${response}" &>/dev/null; then
+    [ "${printerrors}" == "true" ] && echo '☂ error finding coordinates' >&2
+    [ -e /tmp/ipgeo ] && rm /tmp/ipgeo; exit 1
 fi
- 
+
 # replace the weather code with an
 # appropriate icon (from scientifica)
 case "${response% *}" in
