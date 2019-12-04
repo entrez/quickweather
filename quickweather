@@ -49,16 +49,17 @@ ip="$(dig +short +retry=1 +time=3 myip.opendns.com @resolver1.opendns.com 2>/dev
 # recorded ip, use the existing local lat/long info;
 # otherwise, contact the ip geolocation server to 
 # update those values
-[ -e /tmp/ipgeo ] && [ "${ip}" == "$(cat /tmp/ipgeo | head -1)" ] && latlong="$(cat /tmp/ipgeo | tail -1)" \
+[ -e /tmp/ipgeo ] && [ "${ip}" == "$(cat /tmp/ipgeo | head -1)" ] \
+    && latlong="$(cat /tmp/ipgeo | tail -1)" && [ -n "${latlong}" ] \
     || latlong="$(curl -s https://tools.keycdn.com/geo.json | sed 'h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;s/.*"longitude":\([-.0-9]*\).*/lon=\1/;H;g;s/\n/\&/')"
 # overwrite our ip & geo values to the local file
-echo -e "${ip}\n${latlong}" >/tmp/ipgeo
+printf "%s\n%s\n" ${ip} ${latlong} >/tmp/ipgeo
 
 # use our lat/long values to assemble a request url
 # which we can use to contact openweathermap, which
 # sends us a json response that we strip of any & all
 # extraneous information with sed
-requesturl="api.openweathermap.org/data/2.5/weather?${latlong}&appid=${OPENWEATHERKEY}&units=imperial"
+requesturl="https://api.openweathermap.org/data/2.5/weather?${latlong}&appid=${OPENWEATHERKEY}&units=imperial"
 response="$(curl -s "${requesturl}" | sed 'h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;s/.*"temp":\([-+0-9]*\).*/\1/;H;g;s/\n/ /')"
 
 # verify there isn't a problem with the server and/or
