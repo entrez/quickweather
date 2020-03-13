@@ -37,6 +37,8 @@ done
 # don't bother pinging all those sites and wasting
 # bandwidth if we don't have a valid api key in the
 # first place
+
+_jq=$(command -v jq)
 [ -z "${OPENWEATHERKEY}" ] && echo '☂ no api key: set $OPENWEATHERKEY' >&2 && exit 1
 
 # retrieve external ip
@@ -49,41 +51,61 @@ ip="$(dig +short +retry=1 +time=3 myip.opendns.com @resolver1.opendns.com 2>/dev
 # recorded ip, use the existing local lat/long info;
 # otherwise, contact the ip geolocation server to 
 # update those values
-[ -e /tmp/ipgeo ] && [ "${ip}" == "$(cat /tmp/ipgeo | head -1)" ] \
+latlong_regex='h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;'\
+'s/.*"longitude":\([-.0-9]*\).*/lon=\1/;H;g;s/\n/\&/'
+
+[ -e /tmp/ipgeo ] && [ "$ip" = "$(cat /tmp/ipgeo | head -1)" ] \
     && latlong="$(cat /tmp/ipgeo | tail -1)" && [ -n "${latlong}" ] \
-    || latlong="$(curl -s https://tools.keycdn.com/geo.json | sed 'h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;s/.*"longitude":\([-.0-9]*\).*/lon=\1/;H;g;s/\n/\&/')"
+    || latlong="$(
+        [ -n "$_jq" ] \
+            && printf 'lat=%s&long=%s' $(curl -m4 -s https://tools.keycdn.com/geo.json \
+                                         | $_jq .data.geo.latitude,.data.geo.longitude) \
+            || printf '%s' $(curl -m4 -s https://tools.keycdn.com/geo.json \
+                            | sed $latlong_regex))"
 # overwrite our ip & geo values to the local file
-printf "%s\n%s\n" ${ip} ${latlong} >/tmp/ipgeo
+printf '%s\n' $ip $latlong >/tmp/ipgeo
 
 # use our lat/long values to assemble a request url
 # which we can use to contact openweathermap, which
 # sends us a json response that we strip of any & all
 # extraneous information with sed
 requesturl="https://api.openweathermap.org/data/2.5/weather?${latlong}&appid=${OPENWEATHERKEY}&units=imperial"
-response="$(curl -s "${requesturl}" | sed 'h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;s/.*"temp":\([-+0-9]*\).*/\1/;H;g;s/\n/ /')"
+
+weather_regex='h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;'\
+'s/.*"temp":\([-+0-9]*\).*/\1/;H;g'
+
+response="$(curl -m4 -s $requesturl)"
+result=( $(
+    [ -n "$_jq" ] && $_jq <<<$response '.weather?[0]?.id?,(.main?.temp? | floor)'\
+        || sed <<<$response $weather_regex
+) )
 
 # verify there isn't a problem with the server and/or
 # response before updating our info
-if [ -z "${response}" ]; then
-    [ "${printerrors}" == "true" ] && echo '☂ no connection to openweathermap' >&2
-    exit 1
+resulterror=
+if [ -z "$response" ]; then
+    resulterror='no connection to openweathermap'
 elif grep -e Exceed <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ api request limit reached' >&2
-    exit 1
+    resulterror='api request limit reached'
 elif grep -e Invalid <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ invalid api key' >&2
-    exit 1
+    resulterror='invalid api key'
 elif grep -e Error <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ invalid response from server' >&2
-    exit 1
+    resulterror='invalid response from server'
 elif grep -e Nothing\ to\ geocode <<<"${response}" &>/dev/null; then
-    [ "${printerrors}" == "true" ] && echo '☂ error finding coordinates' >&2
-    [ -e /tmp/ipgeo ] && rm /tmp/ipgeo; exit 1
+    resulterror='error finding coordinates'
+    [ -e /tmp/ipgeo ] && rm /tmp/ipgeo
+elif [ ! ${#result[@]} -eq 2 ]; then
+    resulterror='error parsing weather data'
+fi
+
+if [ -n "$resulterror" ]; then
+    [ "$printerrors" = 'true' ] && printf >&2 '☂ %s ' "$resulterror"
+    exit 1
 fi
 
 # replace the weather code with an
 # appropriate icon (from scientifica)
-case "${response% *}" in
+case "${result[0]}" in
     201|202|211|213|221|231|232)
         # thunderstorm
         icon=''
@@ -131,7 +153,7 @@ case "${response% *}" in
         ;;
 esac
 
-echo "${icon} ${response#* }°"
+echo "${icon} ${result[1]}°"
 
 #           +--------------------------------+
 #           | openweathermap condition codes |
