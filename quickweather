@@ -2,11 +2,11 @@
 
 # uncomment below line to fill in api key here if desired - alternatively, set
 # the environment variable $OPENWEATHERKEY in your shell rc file.
-#[ -z "${OPENWEATHERKEY}" ] && OPENWEATHERKEY='FILL IN API KEY HERE'
+#[ -z "$OPENWEATHERKEY" ] && OPENWEATHERKEY='FILL IN API KEY HERE'
 
 printerrors=true
-while [ "$#" -gt 0 ]; do
-    case "${1}" in
+while [ $# -gt 0 ]; do
+    case "$1" in
         -h|--help)
             # display help message
             echo 'usage: getweather [-s|--silent]' >&2
@@ -37,16 +37,22 @@ done
 # don't bother pinging all those sites and wasting
 # bandwidth if we don't have a valid api key in the
 # first place
+if [ -z "$OPENWEATHERKEY" ]; then
+    [ "$printerrors" = true ] && echo '☂ no api key: set $OPENWEATHERKEY' >&2
+    exit 1
+fi
 
 _jq=$(command -v jq)
-[ -z "${OPENWEATHERKEY}" ] && echo '☂ no api key: set $OPENWEATHERKEY' >&2 && exit 1
 
 # retrieve external ip
-ip="$(dig +short +retry=1 +time=3 myip.opendns.com @resolver1.opendns.com 2>/dev/null)"
-[ -z "${ip}" ] && ip="$(curl -qf https://diagnostic.opendns.com/myip 2>/dev/null)"
+ip=$(dig +short +retry=1 +time=2 myip.opendns.com @resolver1.opendns.com 2>/dev/null)
+[ -z "$ip" ] && ip=$(curl -m4 -qf https://diagnostic.opendns.com/myip 2>/dev/null)
 
-[ -z "${ip}" ] && [ "${printerrors}" == "true" ] \
-    && echo '☂ no internet connection' >&2 && exit 1
+if [ -z "$ip" ]; then 
+    [ "$printerrors" = "true" ] && echo '☂ no internet connection' >&2
+    exit 1
+fi
+
 # if the current external ip matches the previous
 # recorded ip, use the existing local lat/long info;
 # otherwise, contact the ip geolocation server to 
@@ -55,7 +61,7 @@ latlong_regex='h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;'\
 's/.*"longitude":\([-.0-9]*\).*/lon=\1/;H;g;s/\n/\&/'
 
 [ -e /tmp/ipgeo ] && [ "$ip" = "$(cat /tmp/ipgeo | head -1)" ] \
-    && latlong="$(cat /tmp/ipgeo | tail -1)" && [ -n "${latlong}" ] \
+    && latlong="$(cat /tmp/ipgeo | tail -1)" && [ -n "$latlong" ] \
     || latlong="$(
         [ -n "$_jq" ] \
             && printf 'lat=%s&long=%s' $(curl -m4 -s https://tools.keycdn.com/geo.json \
@@ -69,7 +75,7 @@ printf '%s\n' $ip $latlong >/tmp/ipgeo
 # which we can use to contact openweathermap, which
 # sends us a json response that we strip of any & all
 # extraneous information with sed
-requesturl="https://api.openweathermap.org/data/2.5/weather?${latlong}&appid=${OPENWEATHERKEY}&units=imperial"
+requesturl="https://api.openweathermap.org/data/2.5/weather?$latlong&appid=$OPENWEATHERKEY&units=imperial"
 
 weather_regex='h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;'\
 's/.*"temp":\([-+0-9]*\).*/\1/;H;g'
@@ -85,13 +91,13 @@ result=( $(
 resulterror=
 if [ -z "$response" ]; then
     resulterror='no connection to openweathermap'
-elif grep -e Exceed <<<"${response}" &>/dev/null; then
+elif grep -e Exceed <<<"$response" &>/dev/null; then
     resulterror='api request limit reached'
-elif grep -e Invalid <<<"${response}" &>/dev/null; then
+elif grep -e Invalid <<<"$response" &>/dev/null; then
     resulterror='invalid api key'
-elif grep -e Error <<<"${response}" &>/dev/null; then
+elif grep -e Error <<<"$response" &>/dev/null; then
     resulterror='invalid response from server'
-elif grep -e Nothing\ to\ geocode <<<"${response}" &>/dev/null; then
+elif grep -e Nothing\ to\ geocode <<<"$response" &>/dev/null; then
     resulterror='error finding coordinates'
     [ -e /tmp/ipgeo ] && rm /tmp/ipgeo
 elif [ ! ${#result[@]} -eq 2 ]; then
@@ -99,7 +105,7 @@ elif [ ! ${#result[@]} -eq 2 ]; then
 fi
 
 if [ -n "$resulterror" ]; then
-    [ "$printerrors" = 'true' ] && printf >&2 '☂ %s ' "$resulterror"
+    [ "$printerrors" = true ] && printf >&2 '☂ %s ' "$resulterror"
     exit 1
 fi
 
@@ -133,7 +139,7 @@ case "${result[0]}" in
     800)
         # clear sky
         currhour=$(date +%H)
-        [ ${currhour} -lt 21 ] && [ ${currhour} -gt 6 ] && icon='' || icon=''
+        [ $currhour -lt 21 ] && [ $currhour -gt 6 ] && icon='' || icon=''
         ;;
     801)
         # few clouds
@@ -153,7 +159,7 @@ case "${result[0]}" in
         ;;
 esac
 
-echo "${icon} ${result[1]}°"
+echo "$icon ${result[1]}°"
 
 #           +--------------------------------+
 #           | openweathermap condition codes |
