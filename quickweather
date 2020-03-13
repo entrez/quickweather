@@ -155,7 +155,7 @@ case "${result[0]}" in
         ;;
     *)
         # fallback icon
-        icon='✮'
+        icon=''
         ;;
 esac
 
