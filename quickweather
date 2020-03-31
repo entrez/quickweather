@@ -65,8 +65,8 @@ latlong_regex='h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;'\
     && latlong="$(cat /tmp/ipgeo | tail -1)" && [ -n "$latlong" ] \
     || latlong="$(
         [ -n "$_jq" ] \
-            && printf 'lat=%s&long=%s' $(curl -m4 -s https://tools.keycdn.com/geo.json \
-                                         | $_jq .data.geo.latitude,.data.geo.longitude) \
+            && printf 'lat=%s&lon=%s' $(curl -m6 -s https://tools.keycdn.com/geo.json \
+                                         | $_jq 2>/dev/null .data.geo.latitude,.data.geo.longitude) \
             || printf '%s' $(curl -m4 -s https://tools.keycdn.com/geo.json \
                             | sed $latlong_regex))"
 # overwrite our ip & geo values to the local file
@@ -83,7 +83,7 @@ weather_regex='h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;'\
 
 response="$(curl -m4 -s $requesturl)"
 result=( $(
-    [ -n "$_jq" ] && $_jq <<<$response '.weather?[0]?.id?,(.main?.temp? | floor)'\
+    [ -n "$_jq" ] && $_jq 2>/dev/null <<<$response '.weather?[0]?.id?,(.main?.temp? | floor)'\
         || sed <<<$response $weather_regex
 ) )
 
