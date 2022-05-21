@@ -116,7 +116,10 @@ fi
 if [ -n "$resulterror" ]; then
     if [ "$printerrors" = true ]; then
         printf >&2 '☂ %s\n' "$resulterror"
-        [ "$verbose" = true ] && printf >&2 '\nRESPONSE:\n%s\n' "$response"
+        if [ "$verbose" = true ]; then
+            printf >&2 '\nIP: %s\nCOORDS: %s\nRESPONSE:\n%s\n' \
+                "$ip" "$latlong" "$response"
+        fi
     fi
     exit 1
 fi
