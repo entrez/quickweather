@@ -1,11 +1,5 @@
-                           .               , .        
-                  _.. .* _.;_/.    , _  _.-+-|_  _ ._.
-                 (_](_||(_.| \ \/\/ (/,(_] | [ )(/,[  
-                   |                                  
-                                ☁ ☂ ❄ ☀
-
-Get a super-concise summary of current weather conditions in your area
-without manually entering zip code or lat/long whenever you move around.
+A very-concise summary of current weather conditions without manually
+entering zip code or lat/long whenever you move around.
 
 quickweather uses the openweathermap api <https://openweathermap.org/>;
 you can register for an account, and a corresponding api key, for free:
@@ -14,7 +8,7 @@ you can register for an account, and a corresponding api key, for free:
 
 Once you have an api key, store it in the variable `$OPENWEATHERKEY`.
 
-The weather icons used are compatible with the (very nice) terminal font
+The weather icons used are compatible with the terminal font
 `scientifica' <https://github.com/NerdyPepper/scientifica>, and I guess
 probably also with `creep' <https://github.com/romeovs/creep>. I think
 the codepoints used are non-standard so I doubt it will be compatible

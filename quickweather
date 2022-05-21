@@ -61,16 +61,18 @@ fi
 latlong_regex='h;s/.*"latitude":\([-.0-9]*\).*/lat=\1/;x;'\
 's/.*"longitude":\([-.0-9]*\).*/lon=\1/;H;g;s/\n/\&/'
 
-[ -e /tmp/ipgeo ] && [ "$ip" = "$(cat /tmp/ipgeo | head -1)" ] \
-    && latlong="$(cat /tmp/ipgeo | tail -1)" && [ -n "$latlong" ] \
+[ -e /tmp/ipgeo ] && [ "$ip" = "$(head -1 /tmp/ipgeo)" ] \
+    && latlong="$(tail -1 /tmp/ipgeo)" && [ -n "$latlong" ] && [ "$latlong" != "lat=&lon=" ] \
     || latlong="$(
         [ -n "$_jq" ] \
-            && printf 'lat=%s&lon=%s' $(curl -m6 -s https://tools.keycdn.com/geo.json \
+            && printf 'lat=%s&lon=%s' $(curl -H "User-Agent: keycdn-tools:https://$ip" \
+                                            -s "https://tools.keycdn.com/geo.json?host=$ip" \
                                          | $_jq 2>/dev/null .data.geo.latitude,.data.geo.longitude) \
-            || printf '%s' $(curl -m4 -s https://tools.keycdn.com/geo.json \
-                            | sed $latlong_regex))"
+            || printf '%s' $(curl -m4 -H "User-Agent: keycdn-tools:https://$ip"\
+                                -s https://tools.keycdn.com/geo.json \
+                            | sed "$latlong_regex"))"
 # overwrite our ip & geo values to the local file
-printf '%s\n' $ip $latlong >/tmp/ipgeo
+printf '%s\n' "$ip" "$latlong" >/tmp/ipgeo
 
 # use our lat/long values to assemble a request url
 # which we can use to contact openweathermap, which
@@ -81,10 +83,10 @@ requesturl="https://api.openweathermap.org/data/2.5/weather?$latlong&appid=$OPEN
 weather_regex='h;s/.*"weather":\[{"id":\([0-9]*\).*/\1/;x;'\
 's/.*"temp":\([-+0-9]*\).*/\1/;H;g'
 
-response="$(curl -m4 -s $requesturl)"
+response="$(curl -m4 -s "$requesturl")"
 result=( $(
-    [ -n "$_jq" ] && $_jq 2>/dev/null <<<$response '.weather?[0]?.id?,(.main?.temp? | floor)'\
-        || sed <<<$response $weather_regex
+    [ -n "$_jq" ] && $_jq 2>/dev/null <<<"$response" '.weather?[0]?.id?,(.main?.temp? | floor)'\
+        || sed <<<"$response" "$weather_regex"
 ) )
 
 # verify there isn't a problem with the server and/or
@@ -106,7 +108,10 @@ elif [ ! ${#result[@]} -eq 2 ]; then
 fi
 
 if [ -n "$resulterror" ]; then
-    [ "$printerrors" = true ] && printf >&2 '☂ %s ' "$resulterror"
+    if [ "$printerrors" = true ]; then
+        printf >&2 '☂ %s\n' "$resulterror"
+        # printf >&2 '%s \n' "${result[@]}"
+    fi
     exit 1
 fi
 
