@@ -6,6 +6,7 @@
 #[ -z "$OPENWEATHERKEY" ] && OPENWEATHERKEY='FILL IN API KEY HERE'
 
 printerrors=true
+verbose=false
 while [ $# -gt 0 ]; do
     case "$1" in
         -h|--help)
@@ -20,12 +21,17 @@ while [ $# -gt 0 ]; do
             echo 'options:' >&2
             echo '   -h --help         show this message' >&2
             echo '   -s --silent       suppress error messages' >&2
+            echo '   -v --verbose      more verbose errors' >&2
             echo >&2
             exit
             ;;
         -s|--silent)
             # suppress error messages
             printerrors=false
+            ;;
+        -v|--verbose)
+            # show full response when errors occur
+            verbose=true
             ;;
         *)
             # warn of bad arg (but continue)
@@ -110,7 +116,7 @@ fi
 if [ -n "$resulterror" ]; then
     if [ "$printerrors" = true ]; then
         printf >&2 '☂ %s\n' "$resulterror"
-        # printf >&2 '%s \n' "${result[@]}"
+        [ "$verbose" = true ] && printf >&2 '\nRESPONSE:\n%s\n' "$response"
     fi
     exit 1
 fi
